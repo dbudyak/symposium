@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #0D0D0D;
+  --color-abyss: #141414;
+  --color-ash: #1C1C1C;
+  --color-smoke: #2A2A2A;
+  --color-fog: #8B8B8B;
+  --color-bone: #C8C8C8;
+  --color-parchment: #E8E0D4;
+
+  --font-serif: "Playfair Display", "Georgia", serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-void);
+  color: var(--color-bone);
+  font-family: var(--font-mono);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-abyss);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-smoke);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fog);
+}
+
+/* Message entry animation */
+@keyframes message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-enter {
+  animation: message-enter 0.4s ease-out forwards;
+}
+
+/* Pulsing status dot */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Typewriter cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: "\2588";
+  animation: blink 1s step-end infinite;
+  color: var(--color-fog);
+  margin-left: 2px;
+  font-size: 0.8em;
+}
+
+/* Background texture */
+.bg-grain {
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(232, 168, 56, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(126, 184, 218, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(242, 92, 84, 0.02) 0%, transparent 50%);
+}

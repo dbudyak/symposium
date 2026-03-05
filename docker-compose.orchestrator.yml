@@ -1,0 +1,12 @@
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator.Dockerfile
+    environment:
+      DATABASE_URL: postgres://symposium:${POSTGRES_PASSWORD}@${VPS_HOST}:5432/symposium?sslmode=disable
+      OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-deepseek-r1:8b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
