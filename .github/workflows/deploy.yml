@@ -1,0 +1,73 @@
+name: Deploy Symposium
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Test backend
+        working-directory: ./backend
+        run: go build ./...
+
+      - name: Test orchestrator
+        working-directory: ./orchestrator
+        run: go build ./...
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Test frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+  deploy:
+    name: Deploy to UpCloud
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync files to server
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avz --delete --exclude='.env' --exclude='node_modules' --exclude='.git'
+          path: ./
+          remote_path: /opt/symposium/
+          remote_host: ${{ secrets.UPCLOUD_HOST }}
+          remote_user: ${{ secrets.UPCLOUD_USER }}
+          remote_key: ${{ secrets.UPCLOUD_SSH_KEY }}
+
+      - name: Rebuild and restart
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.UPCLOUD_HOST }}
+          username: ${{ secrets.UPCLOUD_USER }}
+          key: ${{ secrets.UPCLOUD_SSH_KEY }}
+          script: |
+            cd /opt/symposium
+            docker compose build backend && docker compose build caddy
+            docker compose up -d
+            echo "Deployed successfully"
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f https://symposium.kodatek.app/api/status || exit 1
