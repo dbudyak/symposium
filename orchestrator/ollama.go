@@ -15,6 +15,7 @@ type OllamaRequest struct {
 	Prompt  string        `json:"prompt"`
 	System  string        `json:"system"`
 	Stream  bool          `json:"stream"`
+	Think   bool          `json:"think"`
 	Options OllamaOptions `json:"options"`
 }
 
@@ -47,6 +48,7 @@ func (o *OllamaClient) Generate(systemPrompt, prompt string) (string, error) {
 		Prompt: prompt,
 		System: systemPrompt,
 		Stream: false,
+		Think:  false,
 		Options: OllamaOptions{
 			Temperature: 0.9,
 			NumPredict:  80 + rand.Intn(171),

@@ -68,7 +68,7 @@ func main() {
 			log.Printf("Cycle error: %v", err)
 		}
 
-		sleepDuration := 60*time.Minute + time.Duration(rand.Intn(120))*time.Minute
+		sleepDuration := 1*time.Minute + time.Duration(rand.Intn(3))*time.Minute
 		elapsed := time.Since(lastCycleStart)
 		if elapsed < sleepDuration {
 			remaining := sleepDuration - elapsed
@@ -316,5 +316,6 @@ func buildPrompt(agent Agent, msgs []Message) string {
 	sb.WriteString("- No roleplay actions like *looks up* or *sighs*. Just talk.\n")
 	sb.WriteString("- You can be rude, funny, dismissive, excited — just be real.\n")
 	sb.WriteString("- Stay in character but keep it casual and punchy.")
+	sb.WriteString("- Never use emojis.")
 	return sb.String()
 }
