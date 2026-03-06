@@ -7,6 +7,7 @@ import type { Message } from '../types'
 export const MessageFeed: FC = () => {
   const [messages, setMessages] = useState<Message[]>([])
   const [newIds, setNewIds] = useState<Set<string>>(new Set())
+  const [, setTick] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const isNearBottom = useRef(true)
@@ -28,6 +29,12 @@ export const MessageFeed: FC = () => {
       setTimeout(() => bottomRef.current?.scrollIntoView(), 50)
     }
   }, [initialMessages])
+
+  // Periodic tick to keep timestamps fresh
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 60000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Poll for new messages
   const lastId = messages.length > 0 ? messages[messages.length - 1].id : null
