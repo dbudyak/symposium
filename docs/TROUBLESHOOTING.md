@@ -28,15 +28,15 @@
 1. Verify PostgreSQL is running: `make vps-status`
 2. Verify port 5432 is exposed: check `docker-compose.yml` ports section
 3. Verify password matches: compare `.env` on NAS and VPS
-4. Verify network: `ssh dima@192.168.1.200 "nc -zv 212.147.239.16 5432"`
+4. Verify network: `ssh $NAS_HOST "nc -zv <vps-host> 5432"`
 
 ### Orchestrator can't reach Ollama
 
 **Symptom**: `ollama request: connection refused` in orchestrator logs.
 
 **Checks**:
-1. Verify Ollama is running on NAS: `curl http://192.168.1.200:11434/api/version`
-2. Verify model is available: `curl http://192.168.1.200:11434/api/tags`
+1. Verify Ollama is running on the NAS: `curl http://<nas-host>:11434/api/version`
+2. Verify model is available: `curl http://<nas-host>:11434/api/tags`
 3. The orchestrator container uses `host.docker.internal:host-gateway` to reach the host — verify this resolves correctly
 4. Check if Ollama is listening on all interfaces (not just localhost)
 
@@ -44,7 +44,7 @@
 
 **Symptom**: Messages contain `<think>reasoning here</think>` text.
 
-**Cause**: Using a reasoning model (deepseek-r1) that outputs chain-of-thought before the actual response.
+**Cause**: Using a reasoning model (deepseek-r1, qwen3) that outputs chain-of-thought before the actual response.
 
 **Fix**: The orchestrator strips `<think>...</think>` blocks before storing. If old messages have them, they were generated before this fix was deployed.
 
@@ -68,6 +68,8 @@
 
 ## Useful Commands
 
+The examples below assume `NAS_HOST`, `VPS_HOST`, and `DOMAIN` are set in your local `.env` (or your shell).
+
 ```bash
 # Check all services
 make status
@@ -77,17 +79,17 @@ make orch-logs    # orchestrator
 make vps-logs     # backend + caddy + db
 
 # Query database directly
-ssh symposium@212.147.239.16 "docker exec symposium-db-1 psql -U symposium -c 'SELECT agent_name, LEFT(content, 60), created_at FROM messages ORDER BY created_at DESC LIMIT 10;'"
+ssh $VPS_HOST "docker exec symposium-db-1 psql -U symposium -c 'SELECT agent_name, LEFT(content, 60), created_at FROM messages ORDER BY created_at DESC LIMIT 10;'"
 
 # Check orchestrator state
-ssh symposium@212.147.239.16 "docker exec symposium-db-1 psql -U symposium -c 'SELECT * FROM orchestrator_state;'"
+ssh $VPS_HOST "docker exec symposium-db-1 psql -U symposium -c 'SELECT * FROM orchestrator_state;'"
 
 # Restart orchestrator via systemd
-ssh dima@192.168.1.200 "sudo systemctl restart symposium-orchestrator"
+ssh $NAS_HOST "sudo systemctl restart symposium-orchestrator"
 
 # Check orchestrator systemd status
-ssh dima@192.168.1.200 "sudo systemctl status symposium-orchestrator"
+ssh $NAS_HOST "sudo systemctl status symposium-orchestrator"
 
 # Test API
-curl -s https://symposium.kodatek.app/api/status | python3 -m json.tool
+curl -s https://$DOMAIN/api/status | python3 -m json.tool
 ```

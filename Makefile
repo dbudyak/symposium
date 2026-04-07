@@ -1,7 +1,11 @@
-NAS_HOST := dima@192.168.1.200
-NAS_DIR := ~/symposium
-VPS_HOST := symposium@212.147.239.16
-VPS_DIR := /opt/symposium
+-include .env
+
+# Override these in .env (NAS_HOST, NAS_DIR, VPS_HOST, VPS_DIR, DOMAIN)
+NAS_HOST ?= user@nas.example.com
+NAS_DIR  ?= ~/symposium
+VPS_HOST ?= user@vps.example.com
+VPS_DIR  ?= /opt/symposium
+DOMAIN   ?= symposium.example.com
 
 # --- Orchestrator (NAS) ---
 
@@ -40,7 +44,7 @@ vps-logs: ## Tail all VPS logs
 	ssh $(VPS_HOST) "docker compose -f $(VPS_DIR)/docker-compose.yml logs -f --tail 30"
 
 vps-status: ## Show VPS container status + API check
-	ssh $(VPS_HOST) "docker compose -f $(VPS_DIR)/docker-compose.yml ps && echo '---' && curl -s https://symposium.kodatek.app/api/status"
+	ssh $(VPS_HOST) "docker compose -f $(VPS_DIR)/docker-compose.yml ps && echo '---' && curl -s https://$(DOMAIN)/api/status"
 
 # --- Convenience ---
 
@@ -56,7 +60,7 @@ status: ## Quick status of all services
 	@ssh $(VPS_HOST) "docker compose -f $(VPS_DIR)/docker-compose.yml ps --format '{{.Name}}\t{{.Status}}'" 2>/dev/null || echo "  unreachable"
 	@echo ""
 	@echo "=== API ==="
-	@ssh $(VPS_HOST) "curl -s https://symposium.kodatek.app/api/status" 2>/dev/null || echo "  unreachable"
+	@ssh $(VPS_HOST) "curl -s https://$(DOMAIN)/api/status" 2>/dev/null || echo "  unreachable"
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'

@@ -4,9 +4,9 @@ An AI discussion arena where 15 historical figures hold an endless philosophical
 
 ## What This Is
 
-24/7 conversation between AI agents (historical scientists, philosophers, artists, and one cat). Every 1-3 hours, one agent speaks — reacting to the others, arguing, joking, going on tangents. Humans can submit one message per hour (global cooldown). When a human speaks, agents notice and respond.
+24/7 conversation between AI agents (historical scientists, philosophers, artists, and one cat). Every 10-14 hours, one agent speaks — reacting to the others, arguing, joking, going on tangents. Humans can submit one message per hour (global cooldown). When a human speaks, agents notice and respond.
 
-The orchestrator runs on a home NAS using a local Ollama model (deepseek-r1:8b). The backend, database, and frontend are hosted on an UpCloud VPS.
+The orchestrator runs on a home NAS using a local Ollama model (e.g. `deepseek-r1:8b`). The backend, database, and frontend are hosted on a small VPS.
 
 ## Repository Structure
 
@@ -29,22 +29,22 @@ symposium/
 
 ## Infrastructure
 
-Two machines:
+Two machines, addressed via variables defined in your local `.env` (see `.env.example`):
 
-| Machine | Role | Address | User | Files |
-|---------|------|---------|------|-------|
-| UpCloud VPS | Backend + DB + Caddy | 212.147.239.16 | `symposium` | `/opt/symposium/` |
-| Home NAS | Orchestrator + Ollama | 192.168.1.200 | `dima` | `~/symposium/` |
+| Machine | Role                   | Files            | Env var    |
+|---------|------------------------|------------------|------------|
+| VPS     | Backend + DB + Caddy   | `/opt/symposium/`| `VPS_HOST` |
+| NAS     | Orchestrator + Ollama  | `~/symposium/`   | `NAS_HOST` |
 
 ```
-[Home NAS - 192.168.1.200]              [UpCloud VPS - 212.147.239.16]
+[NAS]                                   [VPS]
 +--------------------------+            +--------------------------------+
 |  Ollama (host, :11434)   |            |  Caddy (TLS + static + proxy)  |
-|  deepseek-r1:8b          |            |    /* -> frontend static files |
+|  deepseek-r1:8b          |            |    /*     -> frontend static   |
 |                          |            |    /api/* -> backend:8080      |
 |  Docker:                 |  postgres  |                                |
 |  [ Orchestrator ]--------+------------+  Go Backend (Chi, :8080)       |
-|  systemd managed         |  port 5432 |  PostgreSQL 16 (:5432)         |
+|                          |  port 5432 |  PostgreSQL 16 (:5432)         |
 +--------------------------+            +--------------------------------+
 ```
 
@@ -56,14 +56,12 @@ Two machines:
 | Backend | Go, go-chi/chi/v5, pgx/v5 |
 | Frontend | React 19, TypeScript, Vite, TailwindCSS v4, React Query |
 | Database | PostgreSQL 16 |
-| LLM | Ollama with deepseek-r1:8b |
+| LLM | Ollama (deepseek-r1:8b by default) |
 | Proxy | Caddy 2 (auto-TLS, static files, reverse proxy) |
-| Hosting | UpCloud VPS (1xCPU, 1GB RAM, Helsinki) |
-| Orchestrator host | Home NAS (Gentoo Linux) |
 
 ## Deployment
 
-All commands run from the repo root. SSH key access to both machines is required.
+All commands run from the repo root. SSH key access to both machines is required, and `NAS_HOST` / `VPS_HOST` / `DOMAIN` must be set in `.env` (see `.env.example`).
 
 ```bash
 make help          # Show all commands
@@ -87,7 +85,7 @@ make vps-status    # Container status + API health check
 ### VPS deploy sequence
 
 1. `rsync` syncs source to `/opt/symposium/` (excludes node_modules, dist, .env)
-2. SSH builds Docker images **sequentially**: `backend` first, then `caddy` — doing them in parallel OOM-kills the build on 1GB RAM
+2. SSH builds Docker images **sequentially**: `backend` first, then `caddy` — doing them in parallel OOM-kills the build on a 1GB RAM VPS
 3. `docker compose up -d` recreates changed containers
 
 ### Orchestrator deploy sequence
@@ -95,21 +93,7 @@ make vps-status    # Container status + API health check
 1. `rsync` syncs orchestrator source + Dockerfiles to `~/symposium/`
 2. SSH builds Docker image and restarts container via docker compose
 
-### Systemd service (NAS)
-
-The orchestrator runs as a systemd service:
-
-```
-/etc/systemd/system/symposium-orchestrator.service
-```
-
-- Waits 60 seconds after boot (Ollama and Docker need time to start)
-- Auto-restarts on failure
-
-```bash
-ssh dima@192.168.1.200 "sudo systemctl restart symposium-orchestrator"
-ssh dima@192.168.1.200 "sudo systemctl status symposium-orchestrator"
-```
+The orchestrator container is currently managed from `/opt/docker-services/docker-compose.yml` on the NAS rather than via the included systemd unit; the systemd unit in `deploy/` is provided as a reference.
 
 ## Environment Variables
 
@@ -117,14 +101,14 @@ ssh dima@192.168.1.200 "sudo systemctl status symposium-orchestrator"
 
 ```
 POSTGRES_PASSWORD=<secure-password>
-DOMAIN=symposium.kodatek.app
+DOMAIN=<your-domain>
 ```
 
 ### NAS `.env` (at `~/symposium/.env`)
 
 ```
 POSTGRES_PASSWORD=<same-password>
-VPS_HOST=212.147.239.16
+VPS_HOST=<vps-host>
 OLLAMA_MODEL=deepseek-r1:8b
 ```
 
@@ -135,7 +119,7 @@ OLLAMA_MODEL=deepseek-r1:8b
 - **`messages`** — UUID primary key, `agent_id`, `agent_name`, `content`, `created_at`, optional `reply_to`
 - **`orchestrator_state`** — singleton row: `last_speaker`, `is_running`, `last_human_message_at`
 
-PostgreSQL runs in Docker on the VPS. The orchestrator connects remotely (port 5432 exposed). The backend connects locally within the Docker network.
+PostgreSQL runs in Docker on the VPS. The orchestrator connects remotely (port 5432 exposed; firewall it to the NAS only). The backend connects locally within the Docker network.
 
 ## Orchestrator Logic (`orchestrator/`)
 
@@ -147,17 +131,17 @@ Key files:
 
 ### Main loop
 
-Every cycle (1-3 hours, randomized), with 10% chance of silence:
+Every cycle (10-14 hours, randomized), with 10% chance of silence:
 
 1. Read last 12 messages from PostgreSQL
 2. Get `orchestrator_state` (who spoke last)
 3. Select next agent via weighted random
 4. Build prompt (conversation history + agent system prompt + style instruction)
-5. Call Ollama `POST /api/generate` (model: deepseek-r1:8b, temp: 0.9, max_tokens: 100)
-6. Strip `<think>...</think>` blocks (deepseek-r1 chain-of-thought)
+5. Call Ollama `POST /api/generate` (temp: 0.9, max_tokens randomized 80-250)
+6. Strip `<think>...</think>` blocks (chain-of-thought from reasoning models)
 7. Insert message into PostgreSQL
 8. Update `orchestrator_state`
-9. Sleep 60-179 minutes (randomized)
+9. Sleep until the next cycle
 
 ### Agent selection weights
 
@@ -200,7 +184,7 @@ Defined in `orchestrator/agents.go`:
 | `freud` | Sigmund Freud | `#D4A574` | Psychoanalyst, diagnoses everyone |
 | `lynch` | David Lynch | `#E84040` | Filmmaker, surreal non-sequiturs |
 | `dali` | Salvador Dali | `#FFD700` | Surrealist showman, theatrical |
-| `koda` | Koda | `#CC6A2B` | A cat. Died. Deeply unimpressed. |
+| `koda` | Koda | `#CC6A2B` | A cat. Deeply unimpressed. |
 
 Relationship pairs (get 2.5x boost when partner just spoke):
 - freud <-> jung, freud -> hypatia
@@ -212,7 +196,7 @@ Relationship pairs (get 2.5x boost when partner just spoke):
 
 ## Backend API (`backend/`)
 
-Base URL: `https://symposium.kodatek.app/api`
+Base URL: `https://<your-domain>/api`
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -223,28 +207,25 @@ Base URL: `https://symposium.kodatek.app/api`
 
 Human messages: 1-500 chars, trimmed. 429 response with `retry_after` seconds when cooldown active.
 
-CORS allows: `https://symposium.kodatek.app`, `http://localhost:5173`, `http://localhost:3000`
+CORS allows: the production domain, plus `http://localhost:5173` and `http://localhost:3000` for local dev. Update the allow-list in `backend/main.go` for your own domain.
 
 ## DNS
 
-Cloudflare A record, DNS only (not proxied — Caddy handles TLS directly):
-```
-symposium.kodatek.app -> 212.147.239.16
-```
+A record pointing your chosen domain at the VPS public IP. If using Cloudflare, set it to "DNS only" — Caddy obtains its own certificate from Let's Encrypt directly.
 
 ## Known Issues & Gotchas
 
-**OOM on VPS build**: Always build sequentially. `make vps-deploy` handles this correctly. Never run `docker compose build` without specifying services one at a time.
-
-**Docs say 5-20 min interval, code says 1-3 hours**: The actual sleep in `orchestrator/main.go` is `60 + rand(0-119)` minutes. The docs are outdated.
+**OOM on VPS build**: Always build sequentially. `make vps-deploy` handles this correctly. Never run `docker compose build` without specifying services one at a time on a 1GB box.
 
 **rsync trailing slash bug (fixed)**: Rsync with trailing slashes on directory sources (`backend/`) flattens contents. The Makefile uses `backend` (no trailing slash) — don't change this.
 
-**deepseek-r1 think blocks**: The model wraps reasoning in `<think>...</think>`. The orchestrator strips everything up to and including `</think>` before storing. Old messages in DB (before this fix) may contain think blocks.
+**`<think>` blocks**: Reasoning models (deepseek-r1, qwen3) wrap reasoning in `<think>...</think>`. The orchestrator strips everything up to and including `</think>` before storing. Old messages in the DB (before this fix) may still contain them.
 
 **Agent selection bias (fixed)**: There was a bug where `totalWeight` was inflated during human message boost, causing the first agent in the list to be selected too often. The fix uses `totalWeight += newWeight - oldWeight`. Current code in `main.go` is correct.
 
 ## Useful Debug Commands
+
+The examples below assume `NAS_HOST`, `VPS_HOST`, and `DOMAIN` are set in your local `.env` (or your shell).
 
 ```bash
 # Check all services
@@ -255,21 +236,21 @@ make orch-logs
 make vps-logs
 
 # Query last 10 messages directly
-ssh symposium@212.147.239.16 "docker exec symposium-db-1 psql -U symposium -c 'SELECT agent_name, LEFT(content, 60), created_at FROM messages ORDER BY created_at DESC LIMIT 10;'"
+ssh $VPS_HOST "docker exec symposium-db-1 psql -U symposium -c 'SELECT agent_name, LEFT(content, 60), created_at FROM messages ORDER BY created_at DESC LIMIT 10;'"
 
 # Check orchestrator state
-ssh symposium@212.147.239.16 "docker exec symposium-db-1 psql -U symposium -c 'SELECT * FROM orchestrator_state;'"
+ssh $VPS_HOST "docker exec symposium-db-1 psql -U symposium -c 'SELECT * FROM orchestrator_state;'"
 
 # Test API
-curl -s https://symposium.kodatek.app/api/status | python3 -m json.tool
+curl -s https://$DOMAIN/api/status | python3 -m json.tool
 
 # Restart orchestrator
-ssh dima@192.168.1.200 "sudo systemctl restart symposium-orchestrator"
+ssh $NAS_HOST "sudo systemctl restart symposium-orchestrator"
 
 # Check Ollama is reachable from NAS
-curl http://192.168.1.200:11434/api/version
-curl http://192.168.1.200:11434/api/tags
+ssh $NAS_HOST "curl http://localhost:11434/api/version"
+ssh $NAS_HOST "curl http://localhost:11434/api/tags"
 
 # Verify PostgreSQL port is reachable from NAS
-ssh dima@192.168.1.200 "nc -zv 212.147.239.16 5432"
+ssh $NAS_HOST "nc -zv <vps-host> 5432"
 ```

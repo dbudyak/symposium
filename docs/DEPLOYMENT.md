@@ -2,22 +2,23 @@
 
 ## Infrastructure
 
-| Machine | Role | Address | User | Files |
-|---------|------|---------|------|-------|
-| UpCloud VPS | Backend + DB + Caddy | 212.147.239.16 | `symposium` | `/opt/symposium/` |
-| Home NAS | Orchestrator + Ollama | 192.168.1.200 | `dima` | `~/symposium/` |
+| Machine | Role | Files |
+|---------|------|-------|
+| VPS     | Backend + DB + Caddy   | `/opt/symposium/` |
+| NAS     | Orchestrator + Ollama  | `~/symposium/`   |
+
+The actual hostnames, users, and domain are configured locally in `.env` (see `.env.example`).
 
 ## Prerequisites
 
 - SSH access to both machines (key-based)
 - Docker and Docker Compose on both machines
-- Ollama running on NAS with `deepseek-r1:8b` model pulled
-- `.env` file on VPS at `/opt/symposium/.env` with `POSTGRES_PASSWORD` and `DOMAIN`
-- `.env` file on NAS at `~/symposium/.env` with `POSTGRES_PASSWORD` and `VPS_HOST`
+- Ollama running on the NAS with a model pulled (e.g. `deepseek-r1:8b`)
+- `.env` file on the VPS at `/opt/symposium/.env` with `POSTGRES_PASSWORD` and `DOMAIN`
+- `.env` file on the NAS at `~/symposium/.env` with `POSTGRES_PASSWORD` and `VPS_HOST`
+- Local `.env` (in the repo root) defining `NAS_HOST`, `VPS_HOST`, and `DOMAIN` for the Makefile
 
 ## Makefile Commands
-
-Run from `lab/symposium/`:
 
 ```bash
 make help              # Show all commands
@@ -55,7 +56,7 @@ Services: `db` (PostgreSQL 16), `backend` (Go + Chi), `caddy` (Caddy + static fr
 
 ### Systemd Service (NAS)
 
-The orchestrator runs as a systemd service for auto-start on boot:
+The orchestrator can run as a systemd service for auto-start on boot:
 
 ```
 /etc/systemd/system/symposium-orchestrator.service
@@ -92,25 +93,22 @@ Single service:
 
 ```
 POSTGRES_PASSWORD=<secure-password>
-DOMAIN=symposium.kodatek.app
+DOMAIN=<your-domain>
 ```
 
 ### NAS `.env`
 
 ```
 POSTGRES_PASSWORD=<same-password>
-VPS_HOST=212.147.239.16
+VPS_HOST=<vps-host>
 OLLAMA_MODEL=deepseek-r1:8b
 ```
 
 ## DNS
 
-A record in Cloudflare (DNS only, not proxied):
-```
-symposium.kodatek.app -> 212.147.239.16
-```
+A record pointing your chosen domain at the VPS public IP. If using Cloudflare, set it to "DNS only" so Caddy can obtain its own TLS certificate.
 
-Caddy obtains TLS certificate automatically from Let's Encrypt.
+Caddy obtains the certificate automatically from Let's Encrypt.
 
 ## First-Time Setup
 
@@ -131,7 +129,7 @@ chown -R symposium:symposium /home/symposium/.ssh
 
 # Create .env
 echo "POSTGRES_PASSWORD=<password>" > /opt/symposium/.env
-echo "DOMAIN=symposium.kodatek.app" >> /opt/symposium/.env
+echo "DOMAIN=<your-domain>" >> /opt/symposium/.env
 
 # Deploy
 make vps-deploy
@@ -142,12 +140,12 @@ make vps-deploy
 ```bash
 # Create .env
 echo "POSTGRES_PASSWORD=<password>" > ~/symposium/.env
-echo "VPS_HOST=212.147.239.16" >> ~/symposium/.env
+echo "VPS_HOST=<vps-host>" >> ~/symposium/.env
 
 # Deploy
 make orch-deploy
 
-# Install systemd service
+# Install systemd service (optional)
 sudo cp deploy/symposium-orchestrator.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable symposium-orchestrator

@@ -3,3 +3,5 @@ frontend/dist/
 frontend/tsconfig.tsbuildinfo
 .env
 .idea
+orchestrator/symposium-orchestrator
+backend/symposium-backend

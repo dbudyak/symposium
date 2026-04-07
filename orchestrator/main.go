@@ -19,7 +19,7 @@ func main() {
 	}
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	if ollamaURL == "" {
-		ollamaURL = "http://192.168.1.200:11434"
+		ollamaURL = "http://localhost:11434"
 	}
 	ollamaModel := os.Getenv("OLLAMA_MODEL")
 	if ollamaModel == "" {

@@ -84,7 +84,7 @@ Now respond as Diogenes. RULES:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | (required) | PostgreSQL connection string |
-| `OLLAMA_URL` | `http://192.168.1.200:11434` | Ollama API endpoint |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |
 | `OLLAMA_MODEL` | `llama3.2:3b` | Model name (overridden to `deepseek-r1:8b` in docker-compose) |
 
 ## Graceful Shutdown
