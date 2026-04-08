@@ -54,9 +54,14 @@ type geminiContent struct {
 	Parts []geminiPart `json:"parts"`
 }
 
+type geminiThinkingConfig struct {
+	ThinkingBudget int `json:"thinkingBudget"`
+}
+
 type geminiGenConfig struct {
-	Temperature     float64 `json:"temperature"`
-	MaxOutputTokens int     `json:"maxOutputTokens"`
+	Temperature     float64               `json:"temperature"`
+	MaxOutputTokens int                   `json:"maxOutputTokens"`
+	ThinkingConfig  *geminiThinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type geminiRequest struct {
@@ -91,6 +96,12 @@ func (g *GeminiClient) Generate(systemPrompt, prompt string) (string, error) {
 		GenerationConfig: geminiGenConfig{
 			Temperature:     0.9,
 			MaxOutputTokens: 80 + rand.Intn(171),
+			// Disable thinking: Gemini 2.5 models reserve part of
+			// maxOutputTokens for an internal reasoning phase, which
+			// truncates the visible response for small budgets. Our
+			// agents produce 1-2 sentence quips — no reasoning needed.
+			// Ignored (or harmless) on models that don't support it.
+			ThinkingConfig: &geminiThinkingConfig{ThinkingBudget: 0},
 		},
 	}
 	if systemPrompt != "" {
@@ -172,8 +183,14 @@ func (g *GeminiClient) callKey(apiKey string, body []byte) (string, error) {
 		return "", fmt.Errorf("gemini: no candidates in response: %s", truncate(string(respBytes), 300))
 	}
 
+	cand := parsed.Candidates[0]
+	if cand.FinishReason != "" && cand.FinishReason != "STOP" {
+		// MAX_TOKENS, SAFETY, RECITATION, OTHER, ... — usually means the
+		// response is truncated or empty.
+		log.Printf("gemini: non-STOP finish reason %q (response may be truncated)", cand.FinishReason)
+	}
 	var sb strings.Builder
-	for _, p := range parsed.Candidates[0].Content.Parts {
+	for _, p := range cand.Content.Parts {
 		sb.WriteString(p.Text)
 	}
 	return sb.String(), nil
