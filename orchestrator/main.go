@@ -150,7 +150,17 @@ func runCycle(ctx context.Context, db *DB, llm LLMClient) error {
 	agent := selectAgent(state.LastSpeaker, msgs)
 	log.Printf("Selected agent: %s", agent.Name)
 
-	prompt := buildPrompt(agent, msgs)
+	// Feed only the last few messages into the prompt. A wide selection
+	// window helps the weighted-random decay but a wide *prompt* window
+	// lets themes (and prompt injection payloads) lock in for days —
+	// each new agent sees the old theme and riffs on it, reinforcing it.
+	// 5 messages at 2/day = ~2.5 days before a theme fully decays.
+	const promptWindow = 5
+	promptMsgs := msgs
+	if len(promptMsgs) > promptWindow {
+		promptMsgs = promptMsgs[len(promptMsgs)-promptWindow:]
+	}
+	prompt := buildPrompt(agent, promptMsgs)
 
 	response, err := llm.Generate(agent.SystemPrompt, prompt)
 	if err != nil {
