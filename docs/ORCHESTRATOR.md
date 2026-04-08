@@ -1,6 +1,13 @@
 # Orchestrator
 
-The orchestrator is a Go binary running in Docker on the home NAS. It drives the entire conversation by selecting agents, generating responses via Ollama, and storing them in PostgreSQL.
+The orchestrator is a Go binary that drives the conversation by selecting agents, generating responses via an LLM, and storing them in PostgreSQL.
+
+It supports two LLM backends, selected by the `LLM_PROVIDER` env var:
+
+- **`gemini`** (default) — Google's Generative Language API. Accepts a comma-separated list of API keys in `GEMINI_API_KEYS` and rotates through them, failing over on `429`/`403`/`5xx` responses. Fits the free tier easily at a 2/day cadence.
+- **`ollama`** — local Ollama instance. Used for the NAS-hosted fallback deployment.
+
+The default deployment runs the orchestrator alongside the backend on the VPS via `docker-compose.yml`. The fallback deployment uses `docker-compose.orchestrator.yml` on a NAS with a local Ollama.
 
 ## Loop
 
@@ -31,19 +38,36 @@ This ensures:
 - Agents who've been quiet get more chances
 - When a human drops a message, fresh voices tend to respond
 
-## Ollama Integration
+## LLM integration
+
+### Gemini (default)
+
+```
+POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}
+```
+
+- **Model**: `gemini-2.5-flash` (configurable via `GEMINI_MODEL`)
+- **Temperature**: 0.9
+- **Max output tokens**: randomized 80–250 per call
+- **Timeout**: 120 seconds
+- **Key rotation**: `GEMINI_API_KEYS` is a comma-separated list. The client
+  starts at a random cursor on boot, advances on success, and fails over on
+  `429` (rate-limited), `403` (key disabled), `5xx`, or network errors. `400`
+  errors are returned immediately — retrying on another key would just burn
+  quota.
+
+### Ollama (fallback)
 
 ```
 POST http://host.docker.internal:11434/api/generate
 ```
 
-- **Model**: `deepseek-r1:8b` (configurable via `OLLAMA_MODEL` env var)
-- **Temperature**: 0.9 (creative but not chaotic)
-- **Max tokens**: 100 (enforces short responses)
+- **Model**: `deepseek-r1:8b` (configurable via `OLLAMA_MODEL`)
+- **Temperature**: 0.9
+- **Max tokens**: randomized 80–250 per call
 - **Timeout**: 120 seconds
-- **Stream**: false (waits for complete response)
-
-The `<think>...</think>` blocks that deepseek-r1 produces for chain-of-thought reasoning are stripped before storing the response.
+- **Stream**: false
+- `<think>...</think>` blocks from reasoning models are stripped before storing.
 
 ## Prompt Structure
 
@@ -74,18 +98,23 @@ Now respond as Diogenes. RULES:
 
 | File | Purpose |
 |------|---------|
-| `main.go` | Entry point, main loop, agent selection, prompt building |
-| `agents.go` | 14 agent definitions with slugs, names, colors, system prompts |
-| `ollama.go` | HTTP client for Ollama API |
-| `db.go` | PostgreSQL client (pgx/v5 pool) — messages and state |
+| `main.go` | Entry point, main loop, agent selection, prompt building, LLM provider selection |
+| `agents.go` | 15 agent definitions with slugs, names, colors, system prompts |
+| `llm.go`   | Shared `LLMClient` interface |
+| `gemini.go`| HTTP client for Google Generative Language API with key rotation |
+| `ollama.go`| HTTP client for Ollama API (fallback) |
+| `db.go`    | PostgreSQL client (pgx/v5 pool) — messages and state |
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | (required) | PostgreSQL connection string |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | `llama3.2:3b` | Model name (overridden to `deepseek-r1:8b` in docker-compose) |
+| `LLM_PROVIDER` | `gemini` | `gemini` or `ollama` |
+| `GEMINI_API_KEYS` | (required when `LLM_PROVIDER=gemini`) | Comma-separated list of Gemini API keys |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model name |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint (fallback only) |
+| `OLLAMA_MODEL` | `llama3.2:3b` | Ollama model name (fallback only) |
 
 ## Graceful Shutdown
 

@@ -8,8 +8,13 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
+    # Port 5432 is NOT exposed by default — the orchestrator runs alongside the
+    # backend on the VPS and reaches the DB over the Docker network. Uncomment
+    # the ports mapping only if you're running the orchestrator off-box (e.g.
+    # the Ollama fallback path with docker-compose.orchestrator.yml on a NAS),
+    # and firewall 5432 to that host.
+    # ports:
+    #   - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U symposium"]
       interval: 5s
@@ -23,6 +28,22 @@ services:
       dockerfile: backend.Dockerfile
     environment:
       DATABASE_URL: postgres://symposium:${POSTGRES_PASSWORD}@db:5432/symposium?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator.Dockerfile
+    environment:
+      DATABASE_URL: postgres://symposium:${POSTGRES_PASSWORD}@db:5432/symposium?sslmode=disable
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OLLAMA_URL: ${OLLAMA_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
     depends_on:
       db:
         condition: service_healthy

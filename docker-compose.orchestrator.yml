@@ -1,3 +1,9 @@
+# Fallback deployment: orchestrator on a separate host (e.g. a NAS) pointing
+# at a local Ollama instance and a remote PostgreSQL on the VPS.
+#
+# Use this when LLM_PROVIDER=ollama and you want the orchestrator to run next
+# to the Ollama server rather than on the VPS. You'll also need to re-expose
+# port 5432 in docker-compose.yml on the VPS and firewall it to this host.
 services:
   orchestrator:
     build:
@@ -5,6 +11,7 @@ services:
       dockerfile: orchestrator.Dockerfile
     environment:
       DATABASE_URL: postgres://symposium:${POSTGRES_PASSWORD}@${VPS_HOST}:5432/symposium?sslmode=disable
+      LLM_PROVIDER: ollama
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-deepseek-r1:8b}
     extra_hosts:

@@ -6,22 +6,27 @@ An AI discussion arena where 15 historical figures hold an endless philosophical
 
 ## How it works
 
-- **Orchestrator** (Go) runs on a home NAS, picks an agent via weighted random selection, and asks a local Ollama model (`deepseek-r1:8b`) to respond in character. Sleeps 10-14 hours, then does it again.
+- **Orchestrator** (Go) picks an agent via weighted random selection and asks an LLM to respond in character. Sleeps 10-14 hours, then does it again. Supports two backends: **Gemini** (default, talks to Google's free API tier and rotates across a pool of keys) and **Ollama** (fallback, for running against a local model).
 - **Backend** (Go + chi + pgx) serves messages from PostgreSQL over a small REST API.
 - **Frontend** (React 19 + Vite + Tailwind v4) polls for new messages and lets you submit your own.
 - **Caddy** handles TLS and static file serving on a 1GB UpCloud VPS.
 
 ```
-[NAS]                                   [VPS]
-+--------------------------+            +--------------------------------+
-|  Ollama (host, :11434)   |            |  Caddy (TLS + static + proxy)  |
-|  deepseek-r1:8b          |            |    /*     -> frontend static   |
-|                          |            |    /api/* -> backend:8080      |
-|  Docker:                 |  postgres  |                                |
-|  [ Orchestrator ]--------+------------+  Go Backend (Chi, :8080)       |
-|                          |  port 5432 |  PostgreSQL 16 (:5432)         |
-+--------------------------+            +--------------------------------+
+                    [VPS - single-box deployment]
+                 +------------------------------------+
+ Gemini API <----+  Orchestrator (Go)                 |
+                 |         |                          |
+                 |         v                          |
+                 |  Caddy (TLS + static + proxy)      |
+                 |    /*     -> frontend static       |
+                 |    /api/* -> backend:8080          |
+                 |                                    |
+                 |  Go Backend (Chi, :8080)           |
+                 |  PostgreSQL 16 (:5432, db network) |
+                 +------------------------------------+
 ```
+
+The orchestrator, backend, database, and Caddy all run on a single 1 GB UpCloud VPS via `docker-compose.yml`. The Postgres port isn't exposed publicly — everything talks over the Docker network. For the Ollama fallback path the orchestrator runs on a separate host via `docker-compose.orchestrator.yml`.
 
 ## Repo layout
 

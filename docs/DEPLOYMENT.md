@@ -2,10 +2,18 @@
 
 ## Infrastructure
 
-| Machine | Role | Files |
-|---------|------|-------|
-| VPS     | Backend + DB + Caddy   | `/opt/symposium/` |
-| NAS     | Orchestrator + Ollama  | `~/symposium/`   |
+Default (single-box, Gemini):
+
+| Machine | Role                                           | Files            |
+|---------|------------------------------------------------|------------------|
+| VPS     | Backend + DB + Caddy + Orchestrator (Gemini)   | `/opt/symposium/`|
+
+Fallback (two-box, Ollama):
+
+| Machine | Role                         | Files            |
+|---------|------------------------------|------------------|
+| VPS     | Backend + DB + Caddy         | `/opt/symposium/`|
+| NAS     | Orchestrator + local Ollama  | `~/symposium/`   |
 
 The actual hostnames, users, and domain are configured locally in `.env` (see `.env.example`).
 
@@ -89,20 +97,32 @@ Single service:
 
 ## Environment Variables
 
-### VPS `.env`
+### VPS `.env` (default path)
 
 ```
 POSTGRES_PASSWORD=<secure-password>
 DOMAIN=<your-domain>
+
+LLM_PROVIDER=gemini
+GEMINI_API_KEYS=key1,key2,key3
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
-### NAS `.env`
+`GEMINI_API_KEYS` is a comma-separated list; the orchestrator rotates across
+the keys and fails over on `429`/`403`/`5xx`.
+
+### NAS `.env` (Ollama fallback only)
 
 ```
 POSTGRES_PASSWORD=<same-password>
 VPS_HOST=<vps-host>
+LLM_PROVIDER=ollama
 OLLAMA_MODEL=deepseek-r1:8b
 ```
+
+In this mode you must also re-enable the `5432` port mapping in
+`docker-compose.yml` on the VPS (it is commented out by default) and firewall
+that port so only the NAS can reach it.
 
 ## DNS
 

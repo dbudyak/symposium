@@ -12,18 +12,57 @@ import (
 	"time"
 )
 
+// buildLLMClient selects an LLM provider based on LLM_PROVIDER env var.
+// Default is "gemini". Supported: "gemini", "ollama".
+func buildLLMClient() (LLMClient, error) {
+	provider := strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
+	if provider == "" {
+		provider = "gemini"
+	}
+
+	switch provider {
+	case "gemini":
+		rawKeys := os.Getenv("GEMINI_API_KEYS")
+		if rawKeys == "" {
+			return nil, fmt.Errorf("GEMINI_API_KEYS is required when LLM_PROVIDER=gemini (comma-separated)")
+		}
+		var keys []string
+		for _, k := range strings.Split(rawKeys, ",") {
+			if k = strings.TrimSpace(k); k != "" {
+				keys = append(keys, k)
+			}
+		}
+		if len(keys) == 0 {
+			return nil, fmt.Errorf("GEMINI_API_KEYS contained no valid keys")
+		}
+		model := os.Getenv("GEMINI_MODEL")
+		if model == "" {
+			model = "gemini-2.5-flash"
+		}
+		log.Printf("LLM provider: gemini (%s, %d key(s) in rotation)", model, len(keys))
+		return NewGeminiClient(model, keys), nil
+
+	case "ollama":
+		url := os.Getenv("OLLAMA_URL")
+		if url == "" {
+			url = "http://localhost:11434"
+		}
+		model := os.Getenv("OLLAMA_MODEL")
+		if model == "" {
+			model = "llama3.2:3b"
+		}
+		log.Printf("LLM provider: ollama (%s @ %s)", model, url)
+		return NewOllamaClient(url, model), nil
+
+	default:
+		return nil, fmt.Errorf("unknown LLM_PROVIDER %q (expected 'gemini' or 'ollama')", provider)
+	}
+}
+
 func main() {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is required")
-	}
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434"
-	}
-	ollamaModel := os.Getenv("OLLAMA_MODEL")
-	if ollamaModel == "" {
-		ollamaModel = "llama3.2:3b"
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -35,7 +74,10 @@ func main() {
 	}
 	defer db.Close()
 
-	ollama := NewOllamaClient(ollamaURL, ollamaModel)
+	llm, err := buildLLMClient()
+	if err != nil {
+		log.Fatalf("Failed to build LLM client: %v", err)
+	}
 
 	if err := db.UpdateState(ctx, "", true); err != nil {
 		log.Printf("Warning: failed to set running state: %v", err)
@@ -64,7 +106,7 @@ func main() {
 		// 10% chance of silence — natural breathing room
 		if rand.Float64() < 0.1 {
 			log.Println("Silence...")
-		} else if err := runCycle(ctx, db, ollama); err != nil {
+		} else if err := runCycle(ctx, db, llm); err != nil {
 			log.Printf("Cycle error: %v", err)
 		}
 
@@ -83,7 +125,7 @@ func main() {
 	}
 }
 
-func runCycle(ctx context.Context, db *DB, ollama *OllamaClient) error {
+func runCycle(ctx context.Context, db *DB, llm LLMClient) error {
 	msgs, err := db.GetRecentMessages(ctx, 12)
 	if err != nil {
 		return fmt.Errorf("get messages: %w", err)
@@ -100,7 +142,7 @@ func runCycle(ctx context.Context, db *DB, ollama *OllamaClient) error {
 
 	prompt := buildPrompt(agent, msgs)
 
-	response, err := ollama.Generate(agent.SystemPrompt, prompt)
+	response, err := llm.Generate(agent.SystemPrompt, prompt)
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}
