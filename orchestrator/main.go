@@ -12,6 +12,16 @@ import (
 	"time"
 )
 
+// truncateForLog shortens a string for log display and appends an ellipsis
+// only when the string was actually clipped — so short responses log
+// verbatim instead of getting a misleading trailing "...".
+func truncateForLog(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
+
 // buildLLMClient selects an LLM provider based on LLM_PROVIDER env var.
 // Default is "gemini". Supported: "gemini", "ollama".
 func buildLLMClient() (LLMClient, error) {
@@ -164,7 +174,7 @@ func runCycle(ctx context.Context, db *DB, llm LLMClient) error {
 		return fmt.Errorf("update state: %w", err)
 	}
 
-	log.Printf("[%s]: %.80s...", agent.Name, response)
+	log.Printf("[%s]: %s", agent.Name, truncateForLog(response, 200))
 	return nil
 }
 
