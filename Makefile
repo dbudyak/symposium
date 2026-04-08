@@ -33,9 +33,15 @@ orch-status: ## Show orchestrator container status
 
 vps-deploy: ## Sync code and rebuild all VPS services
 	rsync -avz --delete --exclude='node_modules' --exclude='dist' --exclude='.env' --exclude='tsconfig.tsbuildinfo' \
-		backend.Dockerfile frontend.Dockerfile Caddyfile docker-compose.yml init.sql backend frontend \
+		backend.Dockerfile frontend.Dockerfile orchestrator.Dockerfile Caddyfile docker-compose.yml init.sql backend frontend orchestrator \
 		$(VPS_HOST):$(VPS_DIR)/
-	ssh $(VPS_HOST) "cd $(VPS_DIR) && docker compose build backend && docker compose build caddy && docker compose up -d"
+	ssh $(VPS_HOST) "cd $(VPS_DIR) && \
+		(docker compose stop backend caddy orchestrator 2>/dev/null || true) && \
+		docker compose build backend && \
+		docker compose build orchestrator && \
+		docker compose build caddy && \
+		docker compose up -d && \
+		docker image prune -f"
 
 vps-restart: ## Restart all VPS services without rebuilding
 	ssh $(VPS_HOST) "cd $(VPS_DIR) && docker compose restart"

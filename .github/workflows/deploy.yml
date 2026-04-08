@@ -61,10 +61,22 @@ jobs:
           host: ${{ secrets.UPCLOUD_HOST }}
           username: ${{ secrets.UPCLOUD_USER }}
           key: ${{ secrets.UPCLOUD_SSH_KEY }}
+          # 30m ceiling — a cold Go build on the 1 GB VPS can take >10m and
+          # the action's default 10m cap silently kills it mid-compile.
+          command_timeout: 30m
           script: |
             cd /opt/symposium
-            docker compose build backend && docker compose build caddy
+            # Free RAM before building. On a 1 GB box the Go compiler needs
+            # several hundred MB and will swap-thrash past usability if the
+            # backend/caddy/orchestrator containers are still resident. This
+            # causes a brief deploy-time blip, but it prevents wedging the box.
+            docker compose stop backend caddy orchestrator 2>/dev/null || true
+            # Sequential builds — parallel builds OOM on 1 GB RAM.
+            docker compose build backend
+            docker compose build orchestrator
+            docker compose build caddy
             docker compose up -d
+            docker image prune -f
             echo "Deployed successfully"
 
       - name: Health check
