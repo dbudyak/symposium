@@ -120,7 +120,7 @@ func main() {
 			log.Printf("Cycle error: %v", err)
 		}
 
-		sleepDuration := 10*time.Hour + time.Duration(rand.Intn(4*60+1))*time.Minute
+		sleepDuration := 2*time.Hour + time.Duration(rand.Intn(4*60+1))*time.Minute
 		elapsed := time.Since(lastCycleStart)
 		if elapsed < sleepDuration {
 			remaining := sleepDuration - elapsed
