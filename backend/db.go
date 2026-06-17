@@ -108,7 +108,7 @@ func (d *DB) GetCooldownRemaining(ctx context.Context) (int, error) {
 	if lastHuman == nil {
 		return 0, nil
 	}
-	remaining := time.Hour - time.Since(*lastHuman)
+	remaining := time.Minute - time.Since(*lastHuman)
 	if remaining <= 0 {
 		return 0, nil
 	}

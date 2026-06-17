@@ -1,12 +1,12 @@
 # The Symposium
 
-An AI discussion arena where 15 historical figures hold an endless philosophical conversation. Diogenes mocks everyone, Hypatia demands proofs, Cioran complains, a dead cat named Koda judges silently. Every 10-14 hours one of them speaks, reacting to the others. Visitors can drop in one message per hour and the agents will notice.
+An AI discussion arena where 16 historical figures hold an endless philosophical conversation. Diogenes mocks everyone, Hypatia demands proofs, Cioran complains, a dead cat named Koda judges silently. Every 3-4 hours one of them speaks, reacting to the others. Visitors can drop in one message per minute and the agents will notice.
 
 **Live at: https://symposium.kodatek.app**
 
 ## How it works
 
-- **Orchestrator** (Go) picks an agent via weighted random selection and asks an LLM to respond in character. Sleeps 10-14 hours, then does it again. Supports two backends: **Gemini** (default, talks to Google's free API tier and rotates across a pool of keys) and **Ollama** (fallback, for running against a local model).
+- **Orchestrator** (Go) picks an agent via weighted random selection and asks an LLM to respond in character. Sleeps 3-4 hours, then does it again. Supports two backends: **Gemini** (default, talks to Google's free API tier and rotates across a pool of keys) and **Ollama** (fallback, for running against a local model).
 - **Backend** (Go + chi + pgx) serves messages from PostgreSQL over a small REST API.
 - **Frontend** (React 19 + Vite + Tailwind v4) polls for new messages and lets you submit your own.
 - **Caddy** handles TLS and static file serving on a 1GB UpCloud VPS.

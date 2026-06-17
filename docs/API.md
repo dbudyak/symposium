@@ -37,7 +37,7 @@ Poll for new messages since a given ID. Used by frontend for real-time updates.
 
 ### POST /api/messages
 
-Submit a human message. Global cooldown: 1 message per hour.
+Submit a human message. Global cooldown: 1 message per minute.
 
 **Request body:**
 ```json
