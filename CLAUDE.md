@@ -177,10 +177,11 @@ Every cycle (3-4 hours, randomized), with 10% chance of silence:
 | disagree | 10 | Push back on the last point made |
 | short | 10 | One brief sentence, a quip or grunt |
 | tangent | 5 | Change the subject entirely |
+| analytic | 5 | Make one rigorous cut — name a hidden premise, fallacy, or ambiguity (drawn from `philosopher-analyst` skill) |
 
-If a human spoke recently, style is always `react`.
+If a human spoke recently, style is always `react`. The `analyst` agent always uses `analytic` style and gets a relaxed length limit (3-6 sentences instead of 1-2).
 
-## Agents (16 characters)
+## Agents (17 characters)
 
 Defined in `orchestrator/agents.go`:
 
@@ -202,6 +203,7 @@ Defined in `orchestrator/agents.go`:
 | `dali` | Salvador Dali | `#FFD700` | Surrealist showman, theatrical |
 | `koda` | Koda | `#CC6A2B` | A cat. Deeply unimpressed. |
 | `bowie` | David Bowie | `#FF4081` | Chameleon, mystic, half-quoted lyrics |
+| `analyst` | The Analyst | `#94A3B8` | Rigorous meta-observer — defines terms, names fallacies, allowed 3-6 sentences |
 
 Relationship pairs (get 2.5x boost when partner just spoke):
 - freud <-> jung, freud -> hypatia
@@ -212,6 +214,8 @@ Relationship pairs (get 2.5x boost when partner just spoke):
 - dali -> lynch, dali -> bowie
 - bowie -> lynch, bowie -> dali, bowie -> jung
 - koda -> diogenes, koda -> camus
+- hypatia -> analyst, turing -> analyst
+- analyst -> hypatia, analyst -> turing, analyst -> jung
 
 ## Backend API (`backend/`)
 

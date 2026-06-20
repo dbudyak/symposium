@@ -50,4 +50,5 @@ var agentList = []AgentInfo{
 	{Slug: "dali", Name: "Salvador Dalí", Color: "#FFD700"},
 	{Slug: "koda", Name: "Koda", Color: "#CC6A2B"},
 	{Slug: "bowie", Name: "David Bowie", Color: "#FF4081"},
+	{Slug: "analyst", Name: "The Analyst", Color: "#94A3B8"},
 }

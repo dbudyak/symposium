@@ -272,6 +272,17 @@ var promptStyles = []promptStyle{
 	{"disagree", 10},
 	{"short", 10},
 	{"tangent", 5},
+	{"analytic", 5},
+}
+
+// analyticMoves are the skill-derived rigor cuts an agent can make while
+// staying fully in character. Picked at random when style="analytic".
+var analyticMoves = []string{
+	"point out a hidden premise nobody is naming",
+	"name a fallacy or rhetorical sleight in what was just said",
+	"demand a definition for a slippery term being used",
+	"expose an ambiguity the argument is coasting on",
+	"distinguish what is being claimed from what is merely being assumed",
 }
 
 func pickStyle() string {
@@ -339,6 +350,9 @@ func buildPrompt(agent Agent, msgs []Message) string {
 	if humanSpoke {
 		style = "react" // always react to humans
 	}
+	if agent.Slug == "analyst" {
+		style = "analytic" // The Analyst stays in character — rigor is the only mode
+	}
 
 	var instruction string
 	recent := recentSpeaker(msgs, agent.Slug)
@@ -363,6 +377,13 @@ func buildPrompt(agent Agent, msgs []Message) string {
 		instruction = "Change the subject to something that's been on your mind. Non-sequitur is fine. Bring something new."
 	case "short":
 		instruction = "Give a very brief reaction — a few words, max one short sentence. A grunt, a quip, a sigh."
+	case "analytic":
+		move := analyticMoves[rand.Intn(len(analyticMoves))]
+		if agent.Slug == "analyst" {
+			instruction = fmt.Sprintf("%s. Steelman what was said before you cut it. Be precise, not pedantic.", strings.ToUpper(move[:1])+move[1:])
+		} else {
+			instruction = fmt.Sprintf("Stay completely in character, but %s. One clean cut.", move)
+		}
 	default: // "react"
 		instruction = "React to what was just said. Agree, disagree, joke, interrupt — be human."
 	}
@@ -370,14 +391,22 @@ func buildPrompt(agent Agent, msgs []Message) string {
 	log.Printf("Prompt style: %s", style)
 
 	sb.WriteString(fmt.Sprintf("Now respond as %s. RULES:\n", agent.Name))
-	sb.WriteString("- 1-2 short sentences MAX. Like texting or talking in a bar, not writing an essay.\n")
+	if agent.Slug == "analyst" {
+		sb.WriteString("- 3-6 sentences. Develop the analysis as far as the move requires; never pad.\n")
+	} else {
+		sb.WriteString("- 1-2 short sentences MAX. Like texting or talking in a bar, not writing an essay.\n")
+	}
 	sb.WriteString(fmt.Sprintf("- %s\n", instruction))
 	sb.WriteString("- If a human spoke, respond to them directly.\n")
 	sb.WriteString("- No flowery language. No \"dear interlocutor\". Talk normally.\n")
 	sb.WriteString("- NEVER wrap your response in quotation marks. Just speak directly.\n")
 	sb.WriteString("- No roleplay actions like *looks up* or *sighs*. Just talk.\n")
-	sb.WriteString("- You can be rude, funny, dismissive, excited — just be real.\n")
-	sb.WriteString("- Stay in character but keep it casual and punchy.")
+	if agent.Slug == "analyst" {
+		sb.WriteString("- You are measured and a little dry, never casual, never punchy. Rigor is the voice.\n")
+	} else {
+		sb.WriteString("- You can be rude, funny, dismissive, excited — just be real.\n")
+		sb.WriteString("- Stay in character but keep it casual and punchy.\n")
+	}
 	sb.WriteString("- Never use emojis.")
 	return sb.String()
 }

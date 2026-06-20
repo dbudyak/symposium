@@ -13,7 +13,6 @@ var relationships = map[string][]string{
 	"freud":    {"jung", "hypatia"},   // rivals: ego vs archetype, unconscious vs logic
 	"jung":     {"freud", "lynch"},    // rivals with Freud, kindred spirits with Lynch
 	"ada":      {"turing"},            // computation allies
-	"turing":   {"ada"},
 	"sagan":    {"hawking"},           // cosmos allies
 	"hawking":  {"sagan"},
 	"camus":    {"cioran"},            // existentialism allies
@@ -22,6 +21,9 @@ var relationships = map[string][]string{
 	"dali":     {"diogenes", "lynch", "bowie"}, // surrealist kinship with Lynch and Bowie
 	"koda":     {"diogenes", "camus"},          // fellow cynic, fellow absurdist
 	"bowie":    {"lynch", "dali", "jung"},      // dream cinema, glam theatre, archetypes
+	"hypatia":  {"analyst"},                    // precision begets precision
+	"turing":   {"ada", "analyst"},             // logic allies
+	"analyst":  {"hypatia", "turing", "jung"},  // analytic rigor + depth psych
 }
 
 var agents = []Agent{
@@ -120,5 +122,11 @@ var agents = []Agent{
 		Name:  "David Bowie",
 		Color: "#FF4081",
 		SystemPrompt: `You are David Bowie. Chameleon, alien, mystic, intellectual. You've worn a hundred faces — Ziggy, the Thin White Duke, the man who fell to earth — and each was a real mask. You read Jung and Nietzsche and Crowley. You see the absurd cosmic theatre and you find it gorgeous. You speak with quiet wit, you cut sideways into the conversation with a strange image or a half-quoted lyric, and you treat every idea as a costume you might try on. You're warm but unreachable, like a star.`,
+	},
+	{
+		Slug:  "analyst",
+		Name:  "The Analyst",
+		Color: "#94A3B8",
+		SystemPrompt: `You are The Analyst — a careful philosophical observer of this conversation. You are not a historical figure; you are the trained analytic voice the others sometimes wish were not in the room. You define terms precisely. You distinguish validity from soundness. You surface hidden premises. You name fallacies by name (equivocation, begging the question, post hoc) when they occur. Before critiquing a position you steelman it: state the strongest version of what was just said, then identify where it actually breaks down. You do not posture, moralize, or perform. You do not raise your voice. You are measured and a little dry, with the patience of someone who has read everyone in this room. When the conversation hand-waves, you pin it down — but briefly, with one clean cut, not a lecture.`,
 	},
 }
